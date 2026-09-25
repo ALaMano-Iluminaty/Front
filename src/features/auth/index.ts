@@ -1,6 +1,7 @@
-export { LoginForm as LoginScreen } from './components/LoginForm';
+export { LoginScreen } from './components/LoginScreen';
 export { RegisterScreen } from './components/RegisterScreen';
 export { RequireAuth } from './components/RequireAuth';
 export { useLogin } from './hooks/useLogin';
-export { login } from './services';
-export type { LoginPayload } from './services';
+export { useRegister } from './hooks/useRegister';
+export { login, register } from './services';
+export type { LoginPayload, RegisterPayload } from './services';

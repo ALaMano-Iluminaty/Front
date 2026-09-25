@@ -32,4 +32,9 @@ export interface RequestOptions extends Omit<RequestInit, 'body' | 'method'> {
   query?: Record<string, string | number | boolean | undefined | null>;
   /** Aborta la petición pasados N ms. Por defecto 15000. */
   timeoutMs?: number;
+  /**
+   * false = petición pública (login, registro, refresh): no lleva token y un
+   * 401 no dispara la renovación ni el cierre de sesión.
+   */
+  auth?: boolean;
 }

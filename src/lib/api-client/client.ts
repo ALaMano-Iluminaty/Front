@@ -5,6 +5,8 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 
 type TokenProvider = () => string | null;
 type UnauthorizedHandler = () => void;
+/** Pide un access token nuevo con el refresh token. null = no se pudo. */
+type TokenRefresher = () => Promise<string | null>;
 
 /**
  * El token no se lee de localStorage directamente: la sesión lo inyecta.
@@ -12,13 +14,32 @@ type UnauthorizedHandler = () => void;
  */
 let getToken: TokenProvider = () => null;
 let onUnauthorized: UnauthorizedHandler = () => {};
+let refreshToken: TokenRefresher | null = null;
+
+/**
+ * Si varias peticiones reciben 401 a la vez, todas esperan a la misma
+ * renovación: el refresh token suele ser de un solo uso.
+ */
+let refreshInFlight: Promise<string | null> | null = null;
 
 export function configureApiClient(options: {
   getToken?: TokenProvider;
   onUnauthorized?: UnauthorizedHandler;
+  refresh?: TokenRefresher;
 }): void {
   if (options.getToken) getToken = options.getToken;
   if (options.onUnauthorized) onUnauthorized = options.onUnauthorized;
+  if (options.refresh) refreshToken = options.refresh;
+}
+
+function renewToken(): Promise<string | null> {
+  if (!refreshToken) return Promise.resolve(null);
+  refreshInFlight ??= refreshToken()
+    .catch(() => null)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
 }
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
@@ -46,14 +67,20 @@ async function parseError(response: Response): Promise<ApiError> {
   );
 }
 
-async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
-  const { body, query, timeoutMs = DEFAULT_TIMEOUT_MS, headers, signal, ...rest } = options;
+async function request<T>(
+  method: string,
+  path: string,
+  options: RequestOptions = {},
+  /** Token recién renovado: se usa en el reintento tras un 401. */
+  retryToken?: string,
+): Promise<T> {
+  const { body, query, timeoutMs = DEFAULT_TIMEOUT_MS, headers, signal, auth = true, ...rest } = options;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   signal?.addEventListener('abort', () => controller.abort(), { once: true });
 
-  const token = getToken();
+  const token = auth ? (retryToken ?? getToken()) : null;
 
   try {
     const response = await fetch(buildUrl(path, query), {
@@ -69,7 +96,12 @@ async function request<T>(method: string, path: string, options: RequestOptions 
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
 
-    if (response.status === 401) {
+    if (response.status === 401 && auth) {
+      // Un solo reintento: si el token renovado también da 401, se cierra sesión.
+      if (!retryToken) {
+        const renewed = await renewToken();
+        if (renewed) return request<T>(method, path, options, renewed);
+      }
       onUnauthorized();
       throw await parseError(response);
     }

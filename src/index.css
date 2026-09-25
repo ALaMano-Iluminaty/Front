@@ -641,33 +641,6 @@ code {
   overflow: auto;
 }
 
-.auth-layout {
-  min-height: 100%;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-}
-.auth-layout__card {
-  width: min(380px, 100%);
-  padding: 1.75rem;
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-float);
-}
-.auth-layout__title {
-  margin: 0 0 1.25rem;
-  font-size: 2.4rem;
-  text-transform: uppercase;
-}
-.login-form .btn {
-  width: 100%;
-}
-.login-form__hint {
-  margin: 0.75rem 0 0;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
 /* ---------- mapa (compartido) ---------- */
 
 .base-map {

@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { configureApiClient } from '@/lib/api-client';
+import { apiClient, configureApiClient } from '@/lib/api-client';
 import { readStorage, removeStorage, writeStorage } from '@/utils';
 
 export type UserRole = 'CUSTOMER' | 'SELLER';
@@ -41,6 +41,11 @@ interface SessionContextValue {
 
 const STORAGE_KEY = 'barberia.session';
 
+interface RefreshResponse {
+  token: string;
+  refreshToken: string;
+}
+
 /** A dónde va cada rol tras entrar. */
 export function homePathFor(role: UserRole): string {
   return role === 'SELLER' ? '/seller/dashboard' : '/map';
@@ -53,6 +58,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     readStorage<Session | null>(STORAGE_KEY, null),
   );
   const hooksRef = useRef(new Set<() => void>());
+  // La renovación corre fuera del ciclo de render: necesita la sesión vigente,
+  // no la que había cuando se registró el callback.
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   const signIn = useCallback((next: Session) => {
     writeStorage(STORAGE_KEY, next);
@@ -84,6 +93,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   configureApiClient({
     getToken: () => session?.token ?? null,
     onUnauthorized: signOut,
+    refresh: async () => {
+      const current = sessionRef.current;
+      if (!current?.refreshToken) return null;
+      const tokens = await apiClient.post<RefreshResponse>(
+        '/auth/refresh',
+        { refreshToken: current.refreshToken },
+        { auth: false },
+      );
+      signIn({ ...current, token: tokens.token, refreshToken: tokens.refreshToken });
+      return tokens.token;
+    },
   });
 
   const value = useMemo<SessionContextValue>(
