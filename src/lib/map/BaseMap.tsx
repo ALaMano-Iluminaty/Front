@@ -32,7 +32,7 @@ export function BaseMap({ center, zoom = 15, className = '', interactive = true,
       keyboard={interactive}
       className={`base-map ${className}`.trim()}
     >
-      <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} subdomains="abcd" maxZoom={20} />
+      <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
       {children}
     </MapContainer>
   );

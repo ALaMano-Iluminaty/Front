@@ -679,6 +679,15 @@ code {
 .leaflet-container a {
   color: var(--accent-strong);
 }
+/* Teselas un punto más frías, para que el mapa no compita con los pins. */
+.base-map .leaflet-tile-pane {
+  filter: saturate(0.7) contrast(0.95);
+}
+@media (prefers-color-scheme: dark) {
+  .base-map .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) saturate(0.55) brightness(0.9) contrast(0.9);
+  }
+}
 .leaflet-control-attribution {
   font-size: 10px;
 }
