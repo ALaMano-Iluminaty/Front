@@ -1,57 +1,52 @@
-import { NavLink, Outlet } from 'react-router-dom';
-import { useSession } from '@/context/SessionContext';
-import { useRealtimeConnection } from '@/context/RealtimeContext';
-import { Button } from '@/components';
+import { Link, Outlet } from 'react-router-dom';
+import { homePathFor, useRealtimeConnection, useSession } from '@/context';
+import { BarberPole, Button } from '@/components';
 
-const NAV_ITEMS = [
-  { to: '/map', label: 'Mapa' },
-  { to: '/booking', label: 'Agenda' },
-  { to: '/service', label: 'Mi servicio' },
-];
+const ROLE_LABEL = { CUSTOMER: 'Cliente', SELLER: 'Barbero' } as const;
 
 export function AppLayout() {
   const { session, signOut } = useSession();
   const { isOnline, isRecovering } = useRealtimeConnection();
 
+  const connection = isOnline ? 'online' : isRecovering ? 'recovering' : 'offline';
+  const connectionLabel = isOnline ? 'En vivo' : isRecovering ? 'Reconectando' : 'Sin conexión';
+
   return (
-    <div className="app-layout">
-      <header className="app-layout__header">
-        <span className="app-layout__brand">Barbería</span>
+    <div className="shell">
+      <header className="topbar">
+        <Link to={session ? homePathFor(session.user.role) : '/'} className="wordmark">
+          <BarberPole className="wordmark__pole" />
+          Barbería
+        </Link>
 
-        <nav className="app-layout__nav">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => (isActive ? 'nav-link nav-link--active' : 'nav-link')}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+        {session ? <span className="role-chip">{ROLE_LABEL[session.user.role]}</span> : null}
 
-        <div className="app-layout__session">
-          <span
-            className={`status-dot status-dot--${isOnline ? 'online' : isRecovering ? 'recovering' : 'offline'}`}
-            title={isOnline ? 'Conectado' : isRecovering ? 'Reconectando…' : 'Sin conexión'}
-            aria-live="polite"
-          />
-          {session ? <span className="app-layout__user">{session.user.name}</span> : null}
-          <Button variant="ghost" onClick={signOut}>
-            Salir
-          </Button>
-        </div>
+        <span className="topbar__spacer" />
+
+        <span className={`conn conn--${connection}`} role="status" aria-live="polite">
+          <span className="conn__dot" aria-hidden="true" />
+          <span className="conn__label">{connectionLabel}</span>
+        </span>
+
+        {session ? (
+          <span className="avatar" title={session.user.name} aria-hidden="true">
+            {session.user.name.charAt(0).toUpperCase()}
+          </span>
+        ) : null}
+        <Button variant="ghost" onClick={signOut}>
+          Salir
+        </Button>
       </header>
 
       {!isOnline ? (
-        <div className="app-layout__banner" role="status">
+        <div className="shell__banner" role="status">
           {isRecovering
-            ? 'Reconectando con el servidor… los datos pueden estar desactualizados.'
+            ? 'Reconectando con el servidor… lo que ves puede no estar al día.'
             : 'Sin conexión en tiempo real.'}
         </div>
       ) : null}
 
-      <main className="app-layout__main">
+      <main className="shell__main">
         <Outlet />
       </main>
     </div>

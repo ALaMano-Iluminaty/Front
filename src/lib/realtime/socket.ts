@@ -1,3 +1,4 @@
+import { USE_MOCKS } from '@/lib/mock';
 import {
   isRealtimeEnvelope,
   type RealtimeEnvelope,
@@ -41,6 +42,13 @@ class RealtimeSocket {
     this.token = token;
     this.intentionallyClosed = false;
 
+    // En modo demo no hay gateway: el socket se da por abierto y los eventos
+    // los inyectan los mocks con `dispatch`.
+    if (USE_MOCKS) {
+      this.setStatus('open');
+      return;
+    }
+
     const readyState = this.socket?.readyState;
     if (readyState === WebSocket.OPEN || readyState === WebSocket.CONNECTING) return;
 
@@ -82,6 +90,7 @@ class RealtimeSocket {
 
   /** Envía un mensaje al gateway (ej. unirse a la sala de un booking). */
   emit(event: string, data: unknown): void {
+    if (USE_MOCKS) return;
     if (this.socket?.readyState !== WebSocket.OPEN) {
       console.warn('[realtime] socket cerrado, se descarta el envío de:', event);
       return;
@@ -139,15 +148,23 @@ class RealtimeSocket {
     }
 
     const envelope = parsed as RealtimeEnvelope;
-    const listeners = this.listeners.get(envelope.event);
+    this.dispatch(envelope.event, envelope.data);
+  }
+
+  /**
+   * Entrega un evento a los listeners como si viniera del broker.
+   * Fuera de este archivo solo lo usan los mocks.
+   */
+  dispatch<E extends RealtimeEventName>(event: E, data: RealtimeEventPayloads[E]): void {
+    const listeners = this.listeners.get(event);
     if (!listeners) return;
 
     for (const listener of listeners) {
       try {
-        listener(envelope.data);
+        listener(data);
       } catch (error) {
         // Un listener roto no puede tumbar a los demás.
-        console.error('[realtime] listener falló para:', envelope.event, error);
+        console.error('[realtime] listener falló para:', event, error);
       }
     }
   }

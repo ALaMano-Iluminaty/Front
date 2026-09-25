@@ -8,9 +8,10 @@ export interface LoginPayload {
 /**
  * Login mock con token dummy.
  *
- * Cuando el gateway exponga /auth/login, sustituir el cuerpo por:
+ * El rol se deduce del correo mientras no haya backend: un correo que empiece
+ * por "barbero" entra como vendedor. Cuando el gateway exponga /auth/login,
+ * sustituir el cuerpo por:
  *   return apiClient.post<Session>('/auth/login', payload);
- * Nada más de la app cambia.
  */
 export async function login(payload: LoginPayload): Promise<Session> {
   await new Promise((resolve) => setTimeout(resolve, 400));
@@ -19,13 +20,15 @@ export async function login(payload: LoginPayload): Promise<Session> {
     throw new Error('Credenciales inválidas');
   }
 
+  const isSeller = payload.email.toLowerCase().startsWith('barbero');
+
   return {
     token: `dummy.${btoa(payload.email)}.token`,
     user: {
-      id: 'user-1',
+      id: isSeller ? 'vendor-demo' : 'user-demo',
       name: payload.email.split('@')[0],
       email: payload.email,
-      role: 'CUSTOMER',
+      role: isSeller ? 'SELLER' : 'CUSTOMER',
     },
   };
 }

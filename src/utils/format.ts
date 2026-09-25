@@ -3,22 +3,6 @@ export function formatTime(iso: string, locale = 'es-ES'): string {
   return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
-/** "2026-09-17T15:30:00Z" -> "mié, 17 sept" */
-export function formatDate(iso: string, locale = 'es-ES'): string {
-  return new Date(iso).toLocaleDateString(locale, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-}
-
-/** Clave YYYY-MM-DD en hora local, para agrupar slots por día. */
-export function toDateKey(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
-}
-
 /** "hace 3 s" / "hace 2 min" — para la frescura del tracking. */
 export function formatRelative(iso: string, now = Date.now()): string {
   const seconds = Math.round((now - new Date(iso).getTime()) / 1000);
@@ -27,4 +11,15 @@ export function formatRelative(iso: string, now = Date.now()): string {
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `hace ${minutes} min`;
   return `hace ${Math.round(minutes / 60)} h`;
+}
+
+/** 320 -> "320 m" · 1840 -> "1,8 km" */
+export function formatDistance(meters: number, locale = 'es-ES'): string {
+  if (meters < 1000) return `${Math.round(meters / 10) * 10} m`;
+  return `${(meters / 1000).toLocaleString(locale, { maximumFractionDigits: 1 })} km`;
+}
+
+/** Minutos redondeados hacia arriba; nunca promete "0 min" si aún no llegó. */
+export function etaMinutes(seconds: number): number {
+  return Math.max(1, Math.ceil(seconds / 60));
 }

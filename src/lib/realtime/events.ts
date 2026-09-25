@@ -1,79 +1,90 @@
 /**
  * Contrato de eventos que el broker publica hacia el frontend a través del
  * WS Gateway. Un solo sitio donde mirar cuando el backend cambia el contrato.
+ *
+ * Los nombres siguen los del documento del MVP (VENDOR_LOCATION_UPDATE, …).
  */
 
+import type { GeoPoint } from '@/lib/geo';
+
+export type { GeoPoint };
+
 export const RealtimeEvent = {
-  /** 4.1 — posición del barbero / técnico en ruta. */
-  BarberLocationUpdated: 'barber.location.updated',
+  /** 2.1 — un barbero se conectó o se movió. */
+  VendorLocationUpdate: 'VENDOR_LOCATION_UPDATE',
+  /** 2.1 / 2.2 — dejó de estar disponible (se desconectó o lo reservaron). */
+  VendorDisconnected: 'VENDOR_DISCONNECTED',
 
-  /** 5.2 — otro usuario bloqueó un slot mientras lo estabas mirando. */
-  BookingSlotLocked: 'booking.slot.locked',
-  BookingSlotReleased: 'booking.slot.released',
+  /** 4.2 — cambió el stock de una promoción. */
+  PromoStockUpdated: 'PROMO_STOCK_UPDATED',
 
-  /** 5.1 / 5.3 — la agenda cambió. */
-  BookingCreated: 'booking.created',
-  BookingCancelled: 'booking.cancelled',
-
-  /** 6.1 / 6.2 — el servicio en curso cambió de estado. */
-  ServiceStatusChanged: 'service.status.changed',
+  /** 3.2 — al barbero le asignaron un servicio (un cliente lo reservó). */
+  ServiceAssigned: 'SERVICE_ASSIGNED',
+  /** 3.1 — el servicio cambió de estado. */
+  ServiceStatusChanged: 'SERVICE_STATUS_CHANGED',
+  /** 3.1 — posición del barbero durante un servicio activo, con ETA. */
+  ServiceLocationUpdate: 'SERVICE_LOCATION_UPDATE',
 } as const;
 
 export type RealtimeEventName = (typeof RealtimeEvent)[keyof typeof RealtimeEvent];
 
-export type ServiceStatus =
-  | 'PENDING'
-  | 'CONFIRMED'
-  | 'ON_THE_WAY'
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'CANCELLED';
+/** Eventos que el frontend envía al gateway (solo el barbero). */
+export const ClientEvent = {
+  /** 2.2 — cada posición mientras está "En línea". */
+  VendorLocationUpdate: 'VENDOR_LOCATION_UPDATE',
+  /** 2.2 — desconexión limpia: sale del mapa de los clientes al momento. */
+  VendorOffline: 'VENDOR_OFFLINE',
+} as const;
 
-export interface GeoPoint {
-  lat: number;
-  lng: number;
-}
+export type ServiceStatus = 'ACCEPTED' | 'ON_THE_WAY' | 'ARRIVED' | 'COMPLETED' | 'CANCELLED';
 
-export interface BarberLocationUpdatedPayload extends GeoPoint {
-  barberId: string;
-  /** Grados, 0 = norte. Opcional: el backend puede no calcularlo. */
-  heading?: number;
+export interface VendorLocationUpdatePayload extends GeoPoint {
+  vendorId: string;
+  /** Llega cuando el barbero acaba de conectarse y aún no está en el snapshot. */
+  name?: string;
   /** ISO 8601. */
   updatedAt: string;
 }
 
-export interface BookingSlotLockPayload {
-  barberId: string;
-  /** ISO 8601, inicio del slot. */
-  slotStart: string;
-  /** Quién lo bloqueó, para no reaccionar a tu propio bloqueo. */
-  lockedBy: string;
-  /** ISO 8601, cuándo expira el bloqueo. */
-  expiresAt?: string;
+export interface VendorDisconnectedPayload {
+  vendorId: string;
+  reason?: 'OFFLINE' | 'RESERVED';
 }
 
-export interface BookingChangedPayload {
-  bookingId: string;
-  barberId: string;
-  slotStart: string;
-  customerId: string;
+export interface PromoStockUpdatedPayload {
+  promoId: string;
+  vendorId: string;
+  remaining: number;
+  total: number;
+}
+
+export interface ServiceAssignedPayload {
+  serviceId: string;
+  customerName: string;
+  customerLocation: GeoPoint;
 }
 
 export interface ServiceStatusChangedPayload {
-  bookingId: string;
+  serviceId: string;
   status: ServiceStatus;
   changedAt: string;
-  note?: string;
+}
+
+export interface ServiceLocationUpdatePayload extends GeoPoint {
+  serviceId: string;
+  /** Segundos hasta la llegada. Opcional: el backend puede no calcularlo. */
+  etaSeconds?: number;
+  updatedAt: string;
 }
 
 /** Mapa evento -> payload. Da tipado a `useRealtime`. */
 export interface RealtimeEventPayloads {
-  [RealtimeEvent.BarberLocationUpdated]: BarberLocationUpdatedPayload;
-  [RealtimeEvent.BookingSlotLocked]: BookingSlotLockPayload;
-  [RealtimeEvent.BookingSlotReleased]: BookingSlotLockPayload;
-  [RealtimeEvent.BookingCreated]: BookingChangedPayload;
-  [RealtimeEvent.BookingCancelled]: BookingChangedPayload;
+  [RealtimeEvent.VendorLocationUpdate]: VendorLocationUpdatePayload;
+  [RealtimeEvent.VendorDisconnected]: VendorDisconnectedPayload;
+  [RealtimeEvent.PromoStockUpdated]: PromoStockUpdatedPayload;
+  [RealtimeEvent.ServiceAssigned]: ServiceAssignedPayload;
   [RealtimeEvent.ServiceStatusChanged]: ServiceStatusChangedPayload;
+  [RealtimeEvent.ServiceLocationUpdate]: ServiceLocationUpdatePayload;
 }
 
 /** Sobre que envuelve todo mensaje del gateway. */

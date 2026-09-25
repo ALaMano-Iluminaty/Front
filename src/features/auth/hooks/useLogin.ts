@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSession } from '@/context';
+import { homePathFor, useSession } from '@/context';
 import { login, type LoginPayload } from '../services';
 
 export function useLogin() {
@@ -16,7 +16,7 @@ export function useLogin() {
       try {
         const session = await login(payload);
         signIn(session);
-        navigate('/booking', { replace: true });
+        navigate(homePathFor(session.user.role), { replace: true });
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : 'No se pudo iniciar sesión');
       } finally {

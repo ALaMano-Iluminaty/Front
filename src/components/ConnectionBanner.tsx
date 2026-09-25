@@ -1,4 +1,4 @@
-import { Button } from '@/components';
+import { Button } from './Button';
 
 interface ConnectionBannerProps {
   isStale: boolean;
@@ -6,7 +6,7 @@ interface ConnectionBannerProps {
   onRetry: () => void;
 }
 
-/** 6.4 — feedback explícito de que lo que se ve puede estar desactualizado. */
+/** Aviso por pantalla de que lo que se ve puede estar desactualizado. */
 export function ConnectionBanner({ isStale, isRecovering, onRetry }: ConnectionBannerProps) {
   if (!isStale) return null;
 
@@ -14,11 +14,11 @@ export function ConnectionBanner({ isStale, isRecovering, onRetry }: ConnectionB
     <div className="connection-banner" role="status" aria-live="polite">
       <span>
         {isRecovering
-          ? 'Reconectando… el estado puede estar desactualizado.'
+          ? 'Reconectando… lo que ves puede no estar al día.'
           : 'Sin conexión en tiempo real.'}
       </span>
       <Button variant="ghost" onClick={onRetry}>
-        Actualizar ahora
+        Actualizar
       </Button>
     </div>
   );

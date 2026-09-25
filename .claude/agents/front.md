@@ -32,13 +32,18 @@ src/
 ├── layouts/         AppLayout (autenticado) · AuthLayout (login)
 ├── lib/
 │   ├── api-client/  Cliente REST: fetch + timeout + normalización de errores
-│   └── realtime/    socket.ts · events.ts · useRealtime.ts
-├── features/        Una carpeta por caso de uso, autocontenida
-│   ├── auth/            login mock, token dummy
-│   ├── map/             tracking en vivo
-│   ├── booking/         agenda + concurrencia de slots
-│   └── service-status/  estado real-time + reconexión
-├── context/         SessionContext · RealtimeContext
+│   ├── realtime/    socket.ts · events.ts · useRealtime.ts
+│   ├── geo/         geolocalización + distancias
+│   ├── map/         BaseMap, iconos divIcon, animación de marcadores
+│   ├── service/     máquina de estados del servicio
+│   └── mock/        USE_MOCKS (modo demo)
+├── features/        Una carpeta por pantalla del MVP, autocontenida
+│   ├── auth/              /login · /register
+│   ├── client-map/        /map (cliente)
+│   ├── seller-dashboard/  /seller/dashboard (barbero)
+│   ├── tracking/          /tracking/:serviceId (cliente)
+│   └── seller-service/    /seller/service/:serviceId (barbero)
+├── context/         SessionContext (roles) · RealtimeContext · ToastContext
 └── utils/           Helpers puros, sin React
 ```
 
@@ -47,7 +52,7 @@ Cada feature tiene `components/`, `hooks/`, `services.ts` e `index.ts`.
 ### Reglas que no se rompen
 
 1. **Una feature nunca importa de otra feature.** Si dos la necesitan, sube la pieza a `lib/`, `components/` o `context/`.
-2. **Se importa por el `index.ts` de la feature**, nunca una ruta interna desde fuera. `import { BookingAgenda } from '@/features/booking'`, no `.../booking/components/BookingAgenda`.
+2. **Se importa por el `index.ts` de la feature**, nunca una ruta interna desde fuera. `import { ClientMapScreen } from '@/features/client-map'`, no `.../client-map/components/ClientMapScreen`.
 3. **Nadie crea un `new WebSocket` fuera de `lib/realtime/socket.ts`.** Ese archivo es el único dueño de la conexión.
 4. **Nadie llama a `fetch` directamente.** Todo pasa por `apiClient`, que ya pone el `Authorization`, el timeout y convierte el error en `ApiError`.
 5. **`components/` es solo para lo genérico.** Si sabe de barberos, citas o slots, va dentro de la feature.
@@ -77,7 +82,7 @@ Los eventos emitidos durante un corte de conexión **se pierden para siempre**: 
 2. El WS lo mantiene al día con deltas.
 3. Al recuperar la conexión (`isOnline` pasa a `true`) se vuelve a pedir el snapshot.
 
-Ver `useLiveBarbers` y `useServiceStatus` como referencia. Si añades una feature con estado acumulado y no resincronizas al reconectar, está mal.
+Ver los hooks de `client-map` y `tracking` como referencia. Si añades una feature con estado acumulado y no resincronizas al reconectar, está mal.
 
 ### Estado desactualizado se avisa
 
@@ -85,12 +90,11 @@ Cuando el socket no está abierto, el usuario tiene que verlo. Hay dos mecanismo
 
 ## Concurrencia: el 409 es una señal, no un fallo
 
-La agenda es multi-usuario: dos clientes pueden pelearse por el mismo slot. El flujo es **lock → confirmar → soltar** (`useSlotReservation`).
+Reservar un barbero o tomar un cupo de promoción puede chocar con otro cliente.
 
+- El botón pasa a `loading` mientras la petición está en vuelo (no hay doble envío).
 - Un `409` del gateway significa "otro cliente ganó la carrera". Se detecta con `error instanceof ApiError && error.isConflict`.
-- Ante un 409: mensaje claro al usuario **y** recarga de la agenda. Nunca un error genérico.
-- El lock se libera al desmontar si quedó abierto.
-- Un bloqueo propio ya está reflejado de forma optimista: al recibir `BookingSlotLocked` se ignora si `lockedBy` es el usuario actual, o la UI parpadea.
+- Ante un 409: toast claro (`useToast`, tono `conflict`) **y** actualización inmediata de la disponibilidad. Nunca un error genérico.
 
 ## Backend
 
@@ -105,7 +109,7 @@ Variables de entorno, tipadas en `src/vite-env.d.ts`:
 
 ## Estilos
 
-CSS plano, clases estilo BEM (`.agenda__slots`, `.slot--busy`), variables de color en `:root`. Tema oscuro con `color-scheme: dark`.
+CSS plano, clases estilo BEM, variables en `:root` (tema claro "azulejo y poste" con variante oscura por `prefers-color-scheme`). Cada feature trae su propio `.css` junto a su pantalla; `index.css` solo tiene tokens y piezas compartidas. La franja del poste (`BarberPole`) solo gira cuando algo se transmite en vivo.
 
 - Los colores salen de las variables existentes (`--accent`, `--danger`, `--success`, `--warning`, `--surface`…). No metas hex sueltos.
 - El breakpoint móvil del repo es `640px`.

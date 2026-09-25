@@ -1,16 +1,29 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { configureApiClient } from '@/lib/api-client';
 import { readStorage, removeStorage, writeStorage } from '@/utils';
+
+export type UserRole = 'CUSTOMER' | 'SELLER';
 
 export interface SessionUser {
   id: string;
   name: string;
   email: string;
-  role: 'CUSTOMER' | 'BARBER' | 'ADMIN';
+  role: UserRole;
 }
 
 export interface Session {
+  /** Access token (JWT). */
   token: string;
+  refreshToken?: string;
   user: SessionUser;
 }
 
@@ -19,9 +32,19 @@ interface SessionContextValue {
   isAuthenticated: boolean;
   signIn: (session: Session) => void;
   signOut: () => void;
+  /**
+   * Registra algo que debe ejecutarse justo antes de cerrar sesión, con el
+   * socket todavía abierto (ej. avisar VENDOR_OFFLINE). Devuelve el unsubscribe.
+   */
+  onBeforeSignOut: (hook: () => void) => () => void;
 }
 
 const STORAGE_KEY = 'barberia.session';
+
+/** A dónde va cada rol tras entrar. */
+export function homePathFor(role: UserRole): string {
+  return role === 'SELLER' ? '/seller/dashboard' : '/map';
+}
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
@@ -29,6 +52,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(() =>
     readStorage<Session | null>(STORAGE_KEY, null),
   );
+  const hooksRef = useRef(new Set<() => void>());
 
   const signIn = useCallback((next: Session) => {
     writeStorage(STORAGE_KEY, next);
@@ -36,8 +60,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(() => {
+    for (const hook of hooksRef.current) {
+      try {
+        hook();
+      } catch (error) {
+        console.error('[session] hook de cierre falló', error);
+      }
+    }
     removeStorage(STORAGE_KEY);
     setSession(null);
+  }, []);
+
+  const onBeforeSignOut = useCallback((hook: () => void) => {
+    hooksRef.current.add(hook);
+    return () => {
+      hooksRef.current.delete(hook);
+    };
   }, []);
 
   // El cliente REST lee el token de aquí en vez de tocar localStorage.
@@ -49,8 +87,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   });
 
   const value = useMemo<SessionContextValue>(
-    () => ({ session, isAuthenticated: session !== null, signIn, signOut }),
-    [session, signIn, signOut],
+    () => ({ session, isAuthenticated: session !== null, signIn, signOut, onBeforeSignOut }),
+    [session, signIn, signOut, onBeforeSignOut],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
@@ -60,4 +98,13 @@ export function useSession(): SessionContextValue {
   const context = useContext(SessionContext);
   if (!context) throw new Error('useSession debe usarse dentro de <SessionProvider>');
   return context;
+}
+
+/** Ejecuta `hook` justo antes de cerrar sesión mientras el componente esté montado. */
+export function useBeforeSignOut(hook: () => void): void {
+  const { onBeforeSignOut } = useSession();
+  const hookRef = useRef(hook);
+  hookRef.current = hook;
+
+  useEffect(() => onBeforeSignOut(() => hookRef.current()), [onBeforeSignOut]);
 }

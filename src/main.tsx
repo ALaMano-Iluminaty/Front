@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { SessionProvider, RealtimeProvider } from '@/context';
+import { SessionProvider, RealtimeProvider, ToastProvider } from '@/context';
 import { App } from './App';
 import './index.css';
 
@@ -13,7 +13,9 @@ createRoot(container).render(
     <BrowserRouter>
       <SessionProvider>
         <RealtimeProvider>
-          <App />
+          <ToastProvider>
+            <App />
+          </ToastProvider>
         </RealtimeProvider>
       </SessionProvider>
     </BrowserRouter>

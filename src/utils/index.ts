@@ -1,2 +1,2 @@
-export { formatTime, formatDate, formatRelative, toDateKey } from './format';
+export { formatTime, formatRelative, formatDistance, etaMinutes } from './format';
 export { readStorage, writeStorage, removeStorage } from './storage';

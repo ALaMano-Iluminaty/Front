@@ -32,7 +32,7 @@ export function LoginForm() {
       <Button type="submit" loading={loading}>
         Entrar
       </Button>
-      <p className="login-form__hint">Login mock: cualquier correo válido con 4+ caracteres.</p>
+      <p className="login-form__hint">Demo: cualquier correo entra como cliente; uno que empiece por «barbero» entra como barbero.</p>
     </form>
   );
 }
