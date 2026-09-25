@@ -53,12 +53,16 @@ export function useAvailability() {
 
   const positionRef = useRef<GeoPoint | null>(position);
   positionRef.current = position;
+  // Tras reconectarse, la última posición guardada es de la sesión anterior:
+  // no se reenvía hasta que el GPS dé una lectura nueva ('active').
+  const gpsActiveRef = useRef(false);
+  gpsActiveRef.current = gpsStatus === 'active';
 
   useEffect(() => {
     if (!online) return;
     const timer = setInterval(() => {
       const point = positionRef.current;
-      if (point && Date.now() - lastEmit.current >= KEEPALIVE_MS) emitPosition(point);
+      if (point && gpsActiveRef.current && Date.now() - lastEmit.current >= KEEPALIVE_MS) emitPosition(point);
     }, 1_000);
     return () => clearInterval(timer);
   }, [online, emitPosition]);
