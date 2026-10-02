@@ -42,8 +42,14 @@ function renewToken(): Promise<string | null> {
   return refreshInFlight;
 }
 
+/** `new URL` no acepta una base relativa como `/api`: se completa con el origen actual. */
+function absoluteBase(): string {
+  const base = BASE_URL.startsWith('/') ? `${window.location.origin}${BASE_URL}` : BASE_URL;
+  return `${base.replace(/\/$/, '')}/`;
+}
+
 function buildUrl(path: string, query?: RequestOptions['query']): string {
-  const url = new URL(path.replace(/^\//, ''), `${BASE_URL.replace(/\/$/, '')}/`);
+  const url = new URL(path.replace(/^\//, ''), absoluteBase());
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
