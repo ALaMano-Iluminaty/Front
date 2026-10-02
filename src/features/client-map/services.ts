@@ -22,15 +22,36 @@ export interface Vendor extends GeoPoint {
   promos: Promo[];
 }
 
+/** Lo que devuelve el Core en GET /professionals/nearby. */
+interface NearbyProfessionalDto {
+  professionalId: string;
+  latitude: number;
+  longitude: number;
+  distanceKm: number;
+}
+
 /** Radio de búsqueda por defecto, en km. */
 export const NEARBY_RADIUS_KM = 5;
 
+function toVendor(dto: NearbyProfessionalDto): Vendor {
+  return {
+    vendorId: dto.professionalId,
+    // TODO: nombre real cuando el Core lo exponga
+    name: `Vendedor ${dto.professionalId.slice(0, 6)}`,
+    lat: dto.latitude,
+    lng: dto.longitude,
+    updatedAt: new Date().toISOString(),
+    promos: [],
+  };
+}
+
 /** Snapshot inicial de barberos disponibles; el WS trae los cambios desde aquí. */
-export function fetchNearbyVendors(center: GeoPoint): Promise<Vendor[]> {
+export async function fetchNearbyVendors(center: GeoPoint): Promise<Vendor[]> {
   if (USE_MOCKS) return mockNearbyVendors(center);
-  return apiClient.get<Vendor[]>('/vendors/nearby', {
+  const professionals = await apiClient.get<NearbyProfessionalDto[]>('/professionals/nearby', {
     query: { lat: center.lat, lng: center.lng, radiusKm: NEARBY_RADIUS_KM },
   });
+  return professionals.map(toVendor);
 }
 
 /**
