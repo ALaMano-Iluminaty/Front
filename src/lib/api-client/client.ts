@@ -68,7 +68,7 @@ async function parseError(response: Response): Promise<ApiError> {
   return new ApiError(
     response.status,
     body.message ?? `Error ${response.status} en ${response.url}`,
-    body.code,
+    body.code ?? body.error,
     body.details,
   );
 }

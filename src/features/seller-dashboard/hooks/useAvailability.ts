@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useBeforeSignOut } from '@/context';
+import { useBeforeSignOut, useToast } from '@/context';
+import { ApiError } from '@/lib/api-client';
 import { useWatchPosition, type GeoPoint } from '@/lib/geo';
 import { USE_MOCKS } from '@/lib/mock';
 import { ClientEvent, realtimeSocket } from '@/lib/realtime';
 import { startOnlineSimulation } from '../mocks';
+import { PROFESSIONAL_BUSY, goOnlineAtCore } from '../services';
 
 /**
  * El GPS puede disparar varias lecturas por segundo; con una cada 2 s el
@@ -30,7 +32,10 @@ function announceOffline(): void {
  * vez de esperar a que el servidor note el silencio.
  */
 export function useAvailability() {
+  const { show } = useToast();
   const [online, setOnline] = useState(false);
+  /** Ya se avisó al Core en esta sesión "en línea". */
+  const announcedRef = useRef(false);
   const [lastSentAt, setLastSentAt] = useState<string | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const lastEmit = useRef(0);
@@ -70,15 +75,41 @@ export function useAvailability() {
   const goOnline = useCallback(() => {
     setGpsError(null);
     lastEmit.current = 0;
+    announcedRef.current = false;
     setOnline(true);
   }, []);
 
   const goOffline = useCallback(() => {
     if (!onlineRef.current) return;
+    // TODO HU5: POST /professionals/me/offline
     announceOffline();
     setOnline(false);
     setLastSentAt(null);
   }, []);
+
+  // El Core necesita la posición para anunciarlo: se avisa con la primera lectura del GPS.
+  useEffect(() => {
+    if (!online || USE_MOCKS || announcedRef.current) return;
+    if (gpsStatus !== 'active' || !position) return;
+    announcedRef.current = true;
+
+    goOnlineAtCore(position).catch((error: unknown) => {
+      goOffline();
+      if (error instanceof ApiError && error.status === 409 && error.code === PROFESSIONAL_BUSY) {
+        show({
+          tone: 'conflict',
+          title: 'Tienes un servicio en curso',
+          body: 'Termínalo antes de volver a ponerte en línea.',
+        });
+        return;
+      }
+      show({
+        tone: 'conflict',
+        title: 'No pudimos ponerte en línea',
+        body: error instanceof Error ? error.message : 'Prueba de nuevo en unos segundos.',
+      });
+    });
+  }, [online, gpsStatus, position, goOffline, show]);
 
   // Sin GPS no hay forma de aparecer en el mapa: se vuelve a desconectado y se explica.
   useEffect(() => {

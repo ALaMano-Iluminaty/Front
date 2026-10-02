@@ -1,6 +1,8 @@
 export interface ApiErrorBody {
   message?: string;
   code?: string;
+  /** El Core manda el código aquí, ej. `{"error":"professional_busy"}`. */
+  error?: string;
   details?: unknown;
 }
 
