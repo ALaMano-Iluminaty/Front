@@ -20,8 +20,19 @@ interface AuthResponse {
   user: SessionUser;
 }
 
+/** El backend usa CLIENT / PROFESSIONAL; el frontend, CUSTOMER / SELLER. */
+const BACKEND_ROLES: Record<string, UserRole> = {
+  CLIENT: 'CUSTOMER',
+  PROFESSIONAL: 'SELLER',
+};
+
+function normalizeRole(role: string): UserRole {
+  return BACKEND_ROLES[role] ?? (role as UserRole);
+}
+
 function toSession(response: AuthResponse): Session {
-  return { token: response.accessToken, refreshToken: response.refreshToken, user: response.user };
+  const user = { ...response.user, role: normalizeRole(response.user.role) };
+  return { token: response.accessToken, refreshToken: response.refreshToken, user };
 }
 
 export async function login(payload: LoginPayload): Promise<Session> {
